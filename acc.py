@@ -1,152 +1,144 @@
 import streamlit as st
 import tldextract
 import re
-import requests
 
-# --- 1. إعدادات الصفحة والتصميم مع إضافة الخلفية ---
+# --- 1. التنسيق الجمالي (UI) ---
 st.set_page_config(page_title="CyberShield Pro", page_icon="🛡️", layout="centered")
 
 st.markdown("""
     <style>
-    /* إضافة خلفية متدرجة للموقع بالكامل */
-    .stApp {
-        background: linear-gradient(180deg, #f0f4f8 0%, #d9e2ec 100%);
-        background-attachment: fixed;
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Tajawal', sans-serif; background-color: #f4f7f9; }
+    
+    .main-card {
+        background: white;
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
     }
     
-    /* تصميم الهيدر (العنوان العلوي) */
-    .main-header {
+    .hero-section {
         text-align: center;
-        padding: 40px;
+        padding: 30px;
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: white;
         border-radius: 20px;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        margin-bottom: 25px;
         border-bottom: 4px solid #38bdf8;
     }
-    
-    .main-header h1 { font-size: 2.2em; margin: 0; font-weight: 700; }
 
-    /* تحسين شكل منطقة الكتابة */
-    .stTextArea textarea {
-        border-radius: 15px;
-        border: 2px solid #cbd5e1;
-        background-color: rgba(255, 255, 255, 0.9); /* شفافية خفيفة */
+    .risk-indicator {
+        padding: 15px;
+        border-radius: 12px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.2em;
+        margin: 10px 0;
     }
-
-    /* تصميم الأزرار */
+    
     .stButton>button {
+        width: 100%;
         border-radius: 12px;
         height: 3.5em;
-        background-color: #0f172a;
+        background: #004aad;
         color: white;
-        border: 1px solid #38bdf8;
         font-weight: bold;
-        transition: all 0.3s ease;
+        border: none;
     }
-    
-    .stButton>button:hover {
-        background-color: #38bdf8;
-        color: #0f172a;
-        transform: scale(1.02);
-    }
-
-    .footer { text-align: center; color: #475569; font-size: 0.9em; margin-top: 60px; font-weight: 500; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. نظام اللغات والتحكم ---
+# --- 2. إدارة الحالة ---
 if 'lang' not in st.session_state: st.session_state.lang = 'ar'
-
-def toggle_lang():
-    st.session_state.lang = 'fr' if st.session_state.lang == 'ar' else 'ar'
-
+def toggle_lang(): st.session_state.lang = 'fr' if st.session_state.lang == 'ar' else 'ar'
 def reset_callback():
-    st.session_state.email_data = "" 
-    if 'triggered' in st.session_state:
-        st.session_state.triggered = False
+    st.session_state.email_data = ""
+    if 'triggered' in st.session_state: st.session_state.triggered = False
 
 texts = {
     'ar': {
-        'title': "كاشف الرسائل المشبوهة",
-        'input_label': "انسخ نص الرسالة هنا للفحص:",
-        'scan_btn': "افحص الرسالة الآن 🔍",
-        'clear_btn': "مسح النص 🗑️",
-        'lang_btn': "التحويل للفرنسية 🇫🇷",
-        'evidence': "📊 لماذا اعتبرناها مشبوهة؟",
-        'safe': "✅ الرسالة تبدو آمنة، لا داعي للقلق.",
-        'danger': "🚨 احذر! هذه الرسالة محاولة احتيال واضحة.",
-        'placeholder': "الصق الرسالة التي وصلتك هنا...",
-        'tips_h': "💡 ماذا تفعل الآن؟",
-        'tips': ["لا تضغط على أي رابط موجود في الرسالة.", "احذف الرسالة فوراً من بريدك.", "لا تعطي معلوماتك الشخصية لأي أحد."]
+        'title': "كاشف التهديدات الرقمية",
+        'input_label': "ضع نص الرسالة هنا لتحليل مستوى الخطر:",
+        'scan_btn': "تحليل مستوى التهديد 🔍",
+        'clear_btn': "مسح 🗑️",
+        'lang_btn': "Switch to French 🇫🇷",
+        'risk_title': "مستوى خطورة الرسالة:",
+        'reasons': "📊 تفاصيل التحليل الجنائي:",
+        'levels': ["آمن (Safe)", "منخفض (Low)", "متوسط (Medium)", "مرتفع (High)", "خطير جداً (Critical)"]
     },
     'fr': {
-        'title': "Détecteur de Messages Suspects",
-        'input_label': "Copiez le message ici pour l'analyser :",
-        'scan_btn': "Analyser maintenant 🔍",
-        'clear_btn': "Effacer le texte 🗑️",
+        'title': "Analyseur de Menaces",
+        'input_label': "Collez le message ici pour l'analyse :",
+        'scan_btn': "Analyser le risque 🔍",
+        'clear_btn': "Effacer 🗑️",
         'lang_btn': "التحويل للعربية 🇩🇿",
-        'evidence': "📊 Pourquoi est-ce suspect ?",
-        'safe': "✅ Ce message semble sûr, aucun danger.",
-        'danger': "🚨 Attention ! Ce message est une tentative de fraude.",
-        'placeholder': "Collez le message reçu ici...",
-        'tips_h': "💡 Que faire maintenant ?",
-        'tips': ["Ne cliquez sur aucun lien dans le message.", "Supprimez le message immédiatement.", "Ne partagez jamais vos infos personnelles."]
+        'risk_title': "Niveau de risque du message :",
+        'reasons': "📊 Rapport d'analyse :",
+        'levels': ["Sûr (Safe)", "Faible (Low)", "Modéré (Medium)", "Élevé (High)", "Critique (Critical)"]
     }
 }
 L = texts[st.session_state.lang]
 
-# --- 3. محرك الفحص المبسط ---
-class Scanner:
+# --- 3. محرك تحليل الخطورة ---
+class ThreatAnalyzer:
     def __init__(self, text):
-        self.text = text
+        self.text = text.lower()
         self.score = 0
-        self.reasons = []
+        self.logs = []
 
-    def check(self):
-        words = ["عاجل", "حسابك", "تحديث", "مغلق", "urgent", "suspension", "bancaire", "sécurisé"]
-        for w in words:
-            if w in self.text.lower():
-                self.score += 20
-                self.reasons.append(f"🚩 تم العثور على كلمة مشبوهة: ({w})")
+    def run(self):
+        # الكلمات المفتاحية (Keywords)
+        keywords = {
+            "urgent": 20, "suspension": 25, "bancaire": 15, "sécurisé": 10,
+            "عاجل": 20, "حسابك": 15, "تحديث": 15, "مغلق": 20, "البنك": 10
+        }
+        for word, pts in keywords.items():
+            if word in self.text:
+                self.score += pts
+                self.logs.append(f"🚩 اكتشاف كلمة مثيرة للشك: ({word})")
 
+        # فحص الروابط (URLs)
         urls = re.findall(r'https?://\S+', self.text)
         for u in urls:
             ext = tldextract.extract(u)
             domain = f"{ext.domain}.{ext.suffix}"
-            if "bna" in u.lower() and domain not in ["bna.dz", "bna.com.dz"]:
-                self.score += 100
-                self.reasons.append(f"🚨 تنبيه: الرابط يدعي أنه للبنك الوطني الجزائري لكنه موقع مزيف.")
+            if "bna" in u and domain not in ["bna.dz", "bna.com.dz"]:
+                self.score += 70
+                self.logs.append(f"🚨 تحذير: انتحال صفة رابط رسمي (Spoofing: {domain})")
+        
+        return min(self.score, 100)
 
-# --- 4. الواجهة ---
+# --- 4. الواجهة الرسومية ---
 st.sidebar.button(L['lang_btn'], on_click=toggle_lang, use_container_width=True)
+st.markdown(f'<div class="hero-section"><h1>{L["title"]}</h1></div>', unsafe_allow_html=True)
 
-st.markdown(f'<div class="main-header"><h1>{L["title"]}</h1></div>', unsafe_allow_html=True)
+with st.container():
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    data = st.text_area(L['input_label'], key="email_data", height=200)
+    c1, c2 = st.columns([3, 1])
+    with c1: 
+        if st.button(L['scan_btn']): st.session_state.triggered = True
+    with c2: 
+        st.button(L['clear_btn'], on_click=reset_callback)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-input_data = st.text_area(L['input_label'], key="email_data", height=200, placeholder=L['placeholder'])
-
-col1, col2 = st.columns(2)
-with col1:
-    if st.button(L['scan_btn'], use_container_width=True):
-        st.session_state.triggered = True
-with col2:
-    st.button(L['clear_btn'], on_click=reset_callback, use_container_width=True)
-
-if st.session_state.get('triggered') and input_data:
-    engine = Scanner(input_data)
-    engine.check()
+if st.session_state.get('triggered') and data:
+    analyzer = ThreatAnalyzer(data)
+    score = analyzer.run()
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    if engine.score >= 70:
-        st.error(L['danger'])
-        with st.expander(L['tips_h'], expanded=True):
-            for t in L['tips']: st.write(f"- {t}")
-    else:
-        st.success(L['safe'])
-            
-    if engine.reasons:
-        with st.expander(L['evidence']):
-            for r in engine.reasons: st.write(r)
+    # تحديد المستوى واللون
+    if score < 20: level, color, bg = L['levels'][0], "#155724", "#d4edda"
+    elif score < 40: level, color, bg = L['levels'][1], "#856404", "#fff3cd"
+    elif score < 60: level, color, bg = L['levels'][2], "#856404", "#ffeeba"
+    elif score < 85: level, color, bg = L['levels'][3], "#721c24", "#f8d7da"
+    else: level, color, bg = L['levels'][4], "#ffffff", "#721c24"
 
-st.markdown(f'<div class="footer">© 2026 {L["title"]} | حماية بسيطة للجميع</div>', unsafe_allow_html=True)
+    st.markdown(f"### {L['risk_title']}")
+    st.markdown(f"""<div class="risk-indicator" style="color:{color}; background-color:{bg};">
+                {level} - {score}% </div>""", unsafe_allow_html=True)
+    st.progress(score / 100)
+
+    if analyzer.logs:
+        with st.expander(L['reasons'], expanded=True):
+            for log in analyzer.logs: st.info(log)
